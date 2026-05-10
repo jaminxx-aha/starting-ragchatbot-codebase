@@ -29,8 +29,11 @@ All responses must be:
 Provide only the direct answer to what was asked.
 """
     
-    def __init__(self, api_key: str, model: str):
-        self.client = anthropic.Anthropic(api_key=api_key)
+    def __init__(self, api_key: str, model: str, base_url: str = ""):
+        if base_url:
+            self.client = anthropic.Anthropic(api_key=api_key, base_url=base_url)
+        else:
+            self.client = anthropic.Anthropic(api_key=api_key)
         self.model = model
         
         # Pre-build base API parameters
@@ -83,8 +86,13 @@ Provide only the direct answer to what was asked.
         if response.stop_reason == "tool_use" and tool_manager:
             return self._handle_tool_execution(response, api_params, tool_manager)
         
-        # Return direct response
-        return response.content[0].text
+        # Return direct response - handle both TextBlock and ThinkingBlock
+        for block in response.content:
+            if hasattr(block, 'text'):
+                return block.text
+            elif hasattr(block, 'thinking'):
+                return block.thinking
+        return str(response.content[0])
     
     def _handle_tool_execution(self, initial_response, base_params: Dict[str, Any], tool_manager):
         """
@@ -130,6 +138,11 @@ Provide only the direct answer to what was asked.
             "system": base_params["system"]
         }
         
-        # Get final response
+        # Get final response - handle both TextBlock and ThinkingBlock
         final_response = self.client.messages.create(**final_params)
-        return final_response.content[0].text
+        for block in final_response.content:
+            if hasattr(block, 'text'):
+                return block.text
+            elif hasattr(block, 'thinking'):
+                return block.thinking
+        return str(final_response.content[0])
