@@ -30,6 +30,14 @@ function setupEventListeners() {
         if (e.key === 'Enter') sendMessage();
     });
 
+    // New chat button
+    const newChatBtn = document.getElementById('newChatBtn');
+    if (newChatBtn) {
+        console.log('New chat button found, adding event listener');
+        newChatBtn.addEventListener('click', startNewChat);
+    } else {
+        console.error('New chat button not found!');
+    }
 
     // Suggested questions
     document.querySelectorAll('.suggested-item').forEach(button => {
@@ -44,6 +52,35 @@ function setupEventListeners() {
     document.getElementById('languageSelect').addEventListener('change', (e) => {
         currentLanguage = e.target.value;
     });
+}
+
+// Start a new chat session
+async function startNewChat() {
+    console.log('startNewChat called');
+
+    // Clear backend session if exists
+    if (currentSessionId) {
+        try {
+            console.log('Clearing session:', currentSessionId);
+            await fetch(`${API_URL}/session/${currentSessionId}`, {
+                method: 'DELETE'
+            });
+        } catch (error) {
+            console.error('Error clearing session:', error);
+        }
+    }
+
+    // Reset frontend state
+    currentSessionId = null;
+    chatMessages.innerHTML = '';
+
+    // Show welcome message
+    addMessage('Welcome to the Course Materials Assistant! I can help you with questions about courses, lessons and specific content. What would you like to know?', 'assistant', null, true);
+
+    // Focus on input
+    chatInput.focus();
+
+    console.log('New chat started');
 }
 
 // Set language preference (for initialization)
