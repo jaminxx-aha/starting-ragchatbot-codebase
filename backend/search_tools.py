@@ -89,28 +89,48 @@ class CourseSearchTool(Tool):
         """Format search results with course and lesson context"""
         formatted = []
         sources = []  # Track sources for the UI
-        
+
+        # Collect all (course_title, lesson_number) pairs for batch link lookup
+        course_lesson_pairs = []
+        for meta in results.metadata:
+            course_title = meta.get('course_title', 'unknown')
+            lesson_num = meta.get('lesson_number')
+            if lesson_num is not None:
+                course_lesson_pairs.append((course_title, lesson_num))
+
+        # Batch get lesson links
+        links_map = self.store.get_lesson_links_batch(course_lesson_pairs)
+
         for doc, meta in zip(results.documents, results.metadata):
             course_title = meta.get('course_title', 'unknown')
             lesson_num = meta.get('lesson_number')
-            
+
             # Build context header
             header = f"[{course_title}"
             if lesson_num is not None:
                 header += f" - Lesson {lesson_num}"
             header += "]"
-            
-            # Track source for the UI
-            source = course_title
+
+            # Get lesson link from batch results
+            lesson_link = None
             if lesson_num is not None:
-                source += f" - Lesson {lesson_num}"
-            sources.append(source)
-            
+                lesson_link = links_map.get((course_title, lesson_num))
+
+            # Build SourceInfo for API response
+            display_text = course_title
+            if lesson_num is not None:
+                display_text = f"{course_title} - Lesson {lesson_num}"
+
+            sources.append({
+                "display_text": display_text,
+                "link": lesson_link
+            })
+
             formatted.append(f"{header}\n{doc}")
-        
+
         # Store sources for retrieval
         self.last_sources = sources
-        
+
         return "\n\n".join(formatted)
 
 class ToolManager:
@@ -140,10 +160,11 @@ class ToolManager:
         return self.tools[tool_name].execute(**kwargs)
     
     def get_last_sources(self) -> list:
-        """Get sources from the last search operation"""
+        """Get sources from the last search operation, formatted for API response"""
         # Check all tools for last_sources attribute
         for tool in self.tools.values():
             if hasattr(tool, 'last_sources') and tool.last_sources:
+                # Return structured sources (list of {display_text, link})
                 return tool.last_sources
         return []
 

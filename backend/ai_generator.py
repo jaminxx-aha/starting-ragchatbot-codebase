@@ -81,18 +81,27 @@ Provide only the direct answer to what was asked.
         
         # Get response from Claude
         response = self.client.messages.create(**api_params)
-        
+
         # Handle tool execution if needed
         if response.stop_reason == "tool_use" and tool_manager:
             return self._handle_tool_execution(response, api_params, tool_manager)
-        
-        # Return direct response - handle both TextBlock and ThinkingBlock
+
+        # Return direct response - prioritize TextBlock over ThinkingBlock
+        for block in response.content:
+            if block.type == 'text' and hasattr(block, 'text'):
+                return block.text
+
+        # If only thinking block, return thinking content
+        for block in response.content:
+            if block.type == 'thinking' and hasattr(block, 'thinking'):
+                return block.thinking
+
+        # Last resort: return any text content
         for block in response.content:
             if hasattr(block, 'text'):
                 return block.text
-            elif hasattr(block, 'thinking'):
-                return block.thinking
-        return str(response.content[0])
+
+        return "No response generated."
     
     def _handle_tool_execution(self, initial_response, base_params: Dict[str, Any], tool_manager):
         """
@@ -138,11 +147,28 @@ Provide only the direct answer to what was asked.
             "system": base_params["system"]
         }
         
-        # Get final response - handle both TextBlock and ThinkingBlock
+        # Get final response - handle various block types
         final_response = self.client.messages.create(**final_params)
+
+        # Try to find text block first
+        for block in final_response.content:
+            if block.type == 'text' and hasattr(block, 'text'):
+                return block.text
+
+        # If model wants to use tools again, execute them and get another response
+        if final_response.stop_reason == "tool_use":
+            return self._handle_tool_execution(final_response, final_params, tool_manager)
+
+        # If only thinking block, extract thinking content as response
+        for block in final_response.content:
+            if block.type == 'thinking' and hasattr(block, 'thinking'):
+                thinking_content = block.thinking
+                if thinking_content:
+                    return thinking_content
+
+        # Last resort: return any text content
         for block in final_response.content:
             if hasattr(block, 'text'):
                 return block.text
-            elif hasattr(block, 'thinking'):
-                return block.thinking
-        return str(final_response.content[0])
+
+        return "No response generated."

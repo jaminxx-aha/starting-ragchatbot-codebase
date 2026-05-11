@@ -11,6 +11,7 @@ import os
 
 from config import config
 from rag_system import RAGSystem
+from models import SourceInfo
 
 # Initialize FastAPI app
 app = FastAPI(title="Course Materials RAG System", root_path="")
@@ -39,11 +40,12 @@ class QueryRequest(BaseModel):
     """Request model for course queries"""
     query: str
     session_id: Optional[str] = None
+    language: Optional[str] = "zh"  # Default to Chinese
 
 class QueryResponse(BaseModel):
     """Response model for course queries"""
     answer: str
-    sources: List[str]
+    sources: List[SourceInfo]
     session_id: str
 
 class CourseStats(BaseModel):
@@ -61,10 +63,10 @@ async def query_documents(request: QueryRequest):
         session_id = request.session_id
         if not session_id:
             session_id = rag_system.session_manager.create_session()
-        
-        # Process query using RAG system
-        answer, sources = rag_system.query(request.query, session_id)
-        
+
+        # Process query using RAG system with language preference
+        answer, sources = rag_system.query(request.query, session_id, request.language)
+
         return QueryResponse(
             answer=answer,
             sources=sources,

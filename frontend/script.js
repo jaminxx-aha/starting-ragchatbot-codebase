@@ -3,6 +3,7 @@ const API_URL = '/api';
 
 // Global state
 let currentSessionId = null;
+let currentLanguage = 'zh'; // Default to Chinese
 
 // DOM elements
 let chatMessages, chatInput, sendButton, totalCourses, courseTitles;
@@ -28,8 +29,8 @@ function setupEventListeners() {
     chatInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') sendMessage();
     });
-    
-    
+
+
     // Suggested questions
     document.querySelectorAll('.suggested-item').forEach(button => {
         button.addEventListener('click', (e) => {
@@ -38,6 +39,20 @@ function setupEventListeners() {
             sendMessage();
         });
     });
+
+    // Language selection
+    document.getElementById('languageSelect').addEventListener('change', (e) => {
+        currentLanguage = e.target.value;
+    });
+}
+
+// Set language preference (for initialization)
+function setLanguage(language) {
+    currentLanguage = language;
+    const select = document.getElementById('languageSelect');
+    if (select) {
+        select.value = language;
+    }
 }
 
 
@@ -67,7 +82,8 @@ async function sendMessage() {
             },
             body: JSON.stringify({
                 query: query,
-                session_id: currentSessionId
+                session_id: currentSessionId,
+                language: currentLanguage
             })
         });
 
@@ -122,10 +138,24 @@ function addMessage(content, type, sources = null, isWelcome = false) {
     let html = `<div class="message-content">${displayContent}</div>`;
     
     if (sources && sources.length > 0) {
+        // Render clickable sources as styled tags
+        const sourcesHtml = sources.map(source => {
+            const displayText = source.display_text || source;
+            const link = source.link;
+            if (link) {
+                return `<a href="${escapeHtml(link)}"
+                             target="_blank"
+                             rel="noopener noreferrer"
+                             class="source-tag source-link">${escapeHtml(displayText)}</a>`;
+            } else {
+                return `<span class="source-tag source-text">${escapeHtml(displayText)}</span>`;
+            }
+        }).join('');
+
         html += `
             <details class="sources-collapsible">
                 <summary class="sources-header">Sources</summary>
-                <div class="sources-content">${sources.join(', ')}</div>
+                <div class="sources-content">${sourcesHtml}</div>
             </details>
         `;
     }

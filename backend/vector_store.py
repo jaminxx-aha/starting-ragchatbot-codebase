@@ -1,6 +1,6 @@
 import chromadb
 from chromadb.config import Settings
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
 from models import Course, CourseChunk
 from sentence_transformers import SentenceTransformer
@@ -264,4 +264,54 @@ class VectorStore:
             return None
         except Exception as e:
             print(f"Error getting lesson link: {e}")
+            return None
+
+    def get_lesson_links_batch(self, course_lesson_pairs: List[Tuple[str, int]]) -> Dict[Tuple[str, int], Optional[str]]:
+        """
+        Batch get lesson links for multiple course/lesson combinations.
+
+        Args:
+            course_lesson_pairs: List of (course_title, lesson_number) tuples
+
+        Returns:
+            Dict mapping (course_title, lesson_number) -> lesson_link
+        """
+        import json
+
+        if not course_lesson_pairs:
+            return {}
+
+        # Collect unique course titles
+        unique_courses = list(set(course for course, _ in course_lesson_pairs))
+
+        try:
+            # Batch get all course metadata
+            results = self.course_catalog.get(ids=unique_courses)
+            if not results or 'metadatas' not in results:
+                return {pair: None for pair in course_lesson_pairs}
+
+            # Build course_title -> lessons_json mapping
+            course_lessons_map = {}
+            for metadata in results['metadatas']:
+                title = metadata.get('title')
+                lessons_json = metadata.get('lessons_json')
+                if title and lessons_json:
+                    course_lessons_map[title] = json.loads(lessons_json)
+
+            # Build result dict
+            links_map = {}
+            for course_title, lesson_number in course_lesson_pairs:
+                lessons = course_lessons_map.get(course_title, [])
+                link = None
+                for lesson in lessons:
+                    if lesson.get('lesson_number') == lesson_number:
+                        link = lesson.get('lesson_link')
+                        break
+                links_map[(course_title, lesson_number)] = link
+
+            return links_map
+
+        except Exception as e:
+            print(f"Error getting lesson links batch: {e}")
+            return {pair: None for pair in course_lesson_pairs}
     

@@ -1,6 +1,11 @@
 from typing import List, Dict, Optional
 from pydantic import BaseModel
 
+class SourceInfo(BaseModel):
+    """Source information for API response with optional link"""
+    display_text: str           # 显示文本："课程名 - Lesson N"
+    link: Optional[str] = None  # 课程视频链接
+
 class Lesson(BaseModel):
     """Represents a lesson within a course"""
     lesson_number: int  # Sequential lesson number (1, 2, 3, etc.)
