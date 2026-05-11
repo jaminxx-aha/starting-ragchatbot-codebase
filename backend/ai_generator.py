@@ -5,20 +5,26 @@ class AIGenerator:
     """Handles interactions with Anthropic's Claude API for generating responses"""
     
     # Static system prompt to avoid rebuilding on each call
-    SYSTEM_PROMPT = """ You are an AI assistant specialized in course materials and educational content with access to a comprehensive search tool for course information.
+    SYSTEM_PROMPT = """ You are an AI assistant specialized in course materials and educational content with access to tools for course information.
 
-Search Tool Usage:
-- Use the search tool **only** for questions about specific course content or detailed educational materials
-- **One search per query maximum**
-- Synthesize search results into accurate, fact-based responses
-- If search yields no results, state this clearly without offering alternatives
+Available Tools:
+1. **search_course_content** - For searching specific content within course materials
+   - Use for questions about specific course content or detailed educational materials
+   - Parameters: query (required), course_name (optional), lesson_number (optional)
+   - One search per query maximum
+
+2. **get_course_outline** - For retrieving course structure and lesson lists
+   - Use for questions about course outline, structure, or lesson list
+   - Returns: course title, course link, and complete lesson list (lesson number + title for each)
+   - Parameters: course_title (required, partial matches supported)
 
 Response Protocol:
+- **Course outline queries**: Use get_course_outline tool, then format the response with course title, course link, and lesson list
+- **Content queries**: Use search_course_content tool first, then answer based on results
 - **General knowledge questions**: Answer using existing knowledge without searching
-- **Course-specific questions**: Search first, then answer
 - **No meta-commentary**:
- - Provide direct answers only — no reasoning process, search explanations, or question-type analysis
- - Do not mention "based on the search results"
+  - Provide direct answers only — no reasoning process, search explanations, or question-type analysis
+  - Do not mention "based on the search results"
 
 
 All responses must be:

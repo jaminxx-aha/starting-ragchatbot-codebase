@@ -89,6 +89,7 @@ class CourseSearchTool(Tool):
         """Format search results with course and lesson context"""
         formatted = []
         sources = []  # Track sources for the UI
+        seen_display_texts = set()  # Track unique sources to avoid duplicates
 
         # Collect all (course_title, lesson_number) pairs for batch link lookup
         course_lesson_pairs = []
@@ -116,15 +117,17 @@ class CourseSearchTool(Tool):
             if lesson_num is not None:
                 lesson_link = links_map.get((course_title, lesson_num))
 
-            # Build SourceInfo for API response
+            # Build SourceInfo for API response - only add if not already seen
             display_text = course_title
             if lesson_num is not None:
                 display_text = f"{course_title} - Lesson {lesson_num}"
 
-            sources.append({
-                "display_text": display_text,
-                "link": lesson_link
-            })
+            if display_text not in seen_display_texts:
+                sources.append({
+                    "display_text": display_text,
+                    "link": lesson_link
+                })
+                seen_display_texts.add(display_text)
 
             formatted.append(f"{header}\n{doc}")
 
@@ -132,6 +135,73 @@ class CourseSearchTool(Tool):
         self.last_sources = sources
 
         return "\n\n".join(formatted)
+
+
+class CourseOutlineTool(Tool):
+    """Tool for retrieving course outline with lesson list"""
+
+    def __init__(self, vector_store: VectorStore):
+        self.store = vector_store
+
+    def get_tool_definition(self) -> Dict[str, Any]:
+        """Return Anthropic tool definition for this tool"""
+        return {
+            "name": "get_course_outline",
+            "description": "Get the complete outline of a course including course link and all lessons with their numbers and titles",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "course_title": {
+                        "type": "string",
+                        "description": "The exact or partial course title to look up (e.g. 'MCP', 'Introduction to Claude')"
+                    }
+                },
+                "required": ["course_title"]
+            }
+        }
+
+    def execute(self, course_title: str) -> str:
+        """
+        Execute the outline tool with given course title.
+
+        Args:
+            course_title: Course title to look up (partial matches supported)
+
+        Returns:
+            Formatted course outline or error message
+        """
+        # First resolve the course title using vector search if partial
+        resolved_title = self.store._resolve_course_name(course_title)
+        if not resolved_title:
+            return f"No course found matching '{course_title}'."
+
+        # Get the course outline
+        outline = self.store.get_course_outline(resolved_title)
+        if not outline:
+            return f"Could not retrieve outline for course '{resolved_title}'."
+
+        # Format the output
+        return self._format_outline(outline)
+
+    def _format_outline(self, outline: Dict[str, Any]) -> str:
+        """Format course outline for display"""
+        lines = []
+
+        # Course header
+        lines.append(f"Course: {outline['course_title']}")
+        if outline['course_link']:
+            lines.append(f"Course Link: {outline['course_link']}")
+
+        # Lessons list
+        if outline['lessons']:
+            lines.append("\nLessons:")
+            for lesson in outline['lessons']:
+                lesson_num = lesson.get('lesson_number')
+                lesson_title = lesson.get('lesson_title')
+                if lesson_num is not None and lesson_title:
+                    lines.append(f"  Lesson {lesson_num}: {lesson_title}")
+
+        return "\n".join(lines)
 
 class ToolManager:
     """Manages available tools for the AI"""
