@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:docs.anthropic.com)",
+      "WebFetch(domain:www.anthropic.com)",
+      "Bash(claude)",
+      "Bash(claude /help)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(uv sync *)",
+      "Bash(curl -LsSf https://astral.sh/uv/install.sh)",
+      "Bash(sh)",
+      "Bash(curl *)",
+      "Bash(open *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(pkill -f \"uvicorn app:app\")",
+      "Bash(lsof -ti:8000)",
+      "Bash(xargs kill -9)",
+      "Bash(uv run *)",
+      "Read(//Users/aha/.claude/**)"
+    ]
+  }
+}
