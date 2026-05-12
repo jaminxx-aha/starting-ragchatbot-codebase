@@ -53,3 +53,19 @@ warn_return_any = false
 warn_unused_configs = true
 ignore_missing_imports = true
 disable_error_code = ["override", "no-any-return", "arg-type", "var-annotated", "return-value", "call-overload"]
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::UserWarning",
+]
+markers = [
+    "unit: Unit tests for individual components",
+    "integration: Integration tests for full system",
+    "api: API endpoint tests",
+]

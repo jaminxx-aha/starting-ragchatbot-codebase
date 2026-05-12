@@ -361,14 +361,14 @@ class TestRAGSystemEndToEnd:
 class TestRAGSystemAPIEndpointIssues:
     """Tests specifically for detecting the 'query failed' issue"""
 
-    def test_app_endpoint_not_hardcoded_error(self):
+    def test_app_endpoint_not_hardcoded_error(self, test_app):
         """Test that app.py endpoint doesn't have hardcoded error"""
-        # Read the source to check for hardcoded error
+        # Read the actual app.py source code directly
         import inspect
+        from pathlib import Path
 
-        import app
-
-        source = inspect.getsource(app.query_documents)
+        app_path = Path(__file__).parent.parent / "app.py"
+        source = app_path.read_text()
 
         # Check if there's a hardcoded raise HTTPException
         has_hardcoded_error = (
@@ -379,13 +379,12 @@ class TestRAGSystemAPIEndpointIssues:
             not has_hardcoded_error
         ), "CRITICAL: app.py has hardcoded 'query failed' error at line 62!"
 
-    def test_actual_query_logic_is_executed(self):
+    def test_actual_query_logic_is_executed(self, test_app):
         """Test that actual query logic (not commented out) is executed"""
-        import inspect
+        from pathlib import Path
 
-        import app
-
-        source = inspect.getsource(app.query_documents)
+        app_path = Path(__file__).parent.parent / "app.py"
+        source = app_path.read_text()
 
         # Check if actual logic is commented out
         has_commented_logic = (
