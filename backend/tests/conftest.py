@@ -1,9 +1,15 @@
 import pytest
 import os
 import sys
+from unittest.mock import Mock, MagicMock, patch, AsyncMock
 
 # Add backend directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from fastapi.testclient import TestClient
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from typing import List, Optional
 
 from config import config
 from vector_store import VectorStore
@@ -11,8 +17,85 @@ from document_processor import DocumentProcessor
 from search_tools import CourseSearchTool, CourseOutlineTool, ToolManager
 from ai_generator import AIGenerator
 from rag_system import RAGSystem
-from models import Course, Lesson, CourseChunk
+from models import Course, Lesson, CourseChunk, SourceInfo
 
+
+# ============================================================================
+# Test App Configuration (without static file mounting)
+# ============================================================================
+
+def create_test_app(test_rag_system=None, raise_errors=False):
+    """Create a FastAPI app for testing without static file mounting
+
+    Args:
+        test_rag_system: The RAG system instance to use
+        raise_errors: If True, exceptions will be caught and converted to HTTPException(500)
+    """
+    app = FastAPI(title="Test App")
+
+    # Pydantic models for request/response
+    class QueryRequest(BaseModel):
+        query: str
+        session_id: Optional[str] = None
+        language: Optional[str] = "zh"
+
+    class QueryResponse(BaseModel):
+        answer: str
+        sources: List[SourceInfo]
+        session_id: str
+
+    class CourseStats(BaseModel):
+        total_courses: int
+        course_titles: List[str]
+
+    rag = test_rag_system
+
+    @app.post("/api/query", response_model=QueryResponse)
+    async def query_documents(request: QueryRequest):
+        try:
+            session_id = request.session_id
+            if not session_id:
+                session_id = rag.session_manager.create_session()
+            answer, sources = rag.query(request.query, session_id, request.language)
+            return QueryResponse(answer=answer, sources=sources, session_id=session_id)
+        except Exception as e:
+            if raise_errors:
+                raise HTTPException(status_code=500, detail=str(e))
+            raise
+
+    @app.get("/api/courses", response_model=CourseStats)
+    async def get_course_stats():
+        try:
+            analytics = rag.get_course_analytics()
+            return CourseStats(
+                total_courses=analytics["total_courses"],
+                course_titles=analytics["course_titles"]
+            )
+        except Exception as e:
+            if raise_errors:
+                raise HTTPException(status_code=500, detail=str(e))
+            raise
+
+    @app.delete("/api/session/{session_id}")
+    async def clear_session(session_id: str):
+        try:
+            rag.session_manager.clear_session(session_id)
+            return {"status": "success", "message": "Session cleared"}
+        except Exception as e:
+            if raise_errors:
+                raise HTTPException(status_code=500, detail=str(e))
+            raise
+
+    @app.get("/")
+    async def root():
+        return {"message": "Test API Root"}
+
+    return app
+
+
+# ============================================================================
+# Core Fixtures
+# ============================================================================
 
 @pytest.fixture
 def temp_chroma_path(tmp_path):
@@ -34,7 +117,6 @@ def vector_store(temp_chroma_path):
 @pytest.fixture
 def populated_vector_store(vector_store):
     """Create a VectorStore with sample course data"""
-    # Add a sample course to the catalog
     course = Course(
         title="Introduction to Claude",
         course_link="https://example.com/course",
@@ -46,7 +128,6 @@ def populated_vector_store(vector_store):
     )
     vector_store.add_course_metadata(course)
 
-    # Add sample content chunks
     chunks = [
         CourseChunk(
             content="Claude is a powerful AI assistant that can help with various tasks.",
@@ -123,7 +204,6 @@ Key topics include retrieval, generation, and augmentation.
 @pytest.fixture
 def rag_system(temp_chroma_path, sample_course_file):
     """Create a full RAG system for integration testing"""
-    # Modify config to use temp path
     test_config = config.__class__.__new__(config.__class__)
     test_config.CHROMA_PATH = temp_chroma_path
     test_config.CHUNK_SIZE = 800
@@ -136,8 +216,109 @@ def rag_system(temp_chroma_path, sample_course_file):
     test_config.ANTHROPIC_BASE_URL = config.ANTHROPIC_BASE_URL
 
     system = RAGSystem(test_config)
-
-    # Add sample course
     system.add_course_document(sample_course_file)
 
     return system
+
+
+# ============================================================================
+# API Testing Fixtures
+# ============================================================================
+
+@pytest.fixture
+def test_app(rag_system):
+    """Create a test FastAPI app without static file mounting"""
+    return create_test_app(test_rag_system=rag_system)
+
+
+@pytest.fixture
+def client(test_app):
+    """Create a TestClient for API testing"""
+    return TestClient(test_app)
+
+
+@pytest.fixture
+def mock_rag_system():
+    """Create a mocked RAG system for API tests that don't need real backend"""
+    mock_system = MagicMock()
+
+    # Mock session manager
+    mock_session_manager = MagicMock()
+    mock_session_manager.create_session.return_value = "test-session-123"
+    mock_session_manager.clear_session.return_value = None
+    mock_system.session_manager = mock_session_manager
+
+    # Mock query method
+    mock_system.query.return_value = (
+        "这是测试回复",
+        [
+            SourceInfo(display_text="Test Course - Lesson 1", link="https://test.example.com/lesson1"),
+            SourceInfo(display_text="Test Course - Lesson 2", link="https://test.example.com/lesson2"),
+        ]
+    )
+
+    # Mock analytics
+    mock_system.get_course_analytics.return_value = {
+        "total_courses": 3,
+        "course_titles": ["Course A", "Course B", "Course C"]
+    }
+
+    return mock_system
+
+
+@pytest.fixture
+def mock_app(mock_rag_system):
+    """Create a test app with mocked RAG system"""
+    return create_test_app(test_rag_system=mock_rag_system)
+
+
+@pytest.fixture
+def mock_client(mock_app):
+    """Create a TestClient with mocked RAG system"""
+    return TestClient(mock_app)
+
+
+@pytest.fixture
+def sample_query_request():
+    """Sample query request data"""
+    return {
+        "query": "What is Claude?",
+        "session_id": None,
+        "language": "en"
+    }
+
+
+@pytest.fixture
+def sample_query_request_chinese():
+    """Sample query request in Chinese"""
+    return {
+        "query": "Claude 是什么？",
+        "session_id": None,
+        "language": "zh"
+    }
+
+
+@pytest.fixture
+def api_error_rag_system():
+    """Mock RAG system that raises errors"""
+    mock_system = MagicMock()
+    mock_session_manager = MagicMock()
+    mock_session_manager.create_session.return_value = "error-session"
+    mock_system.session_manager = mock_session_manager
+
+    # Mock query to raise exception
+    mock_system.query.side_effect = Exception("Simulated API error")
+
+    return mock_system
+
+
+@pytest.fixture
+def error_app(api_error_rag_system):
+    """Create a test app that simulates errors with proper HTTPException handling"""
+    return create_test_app(test_rag_system=api_error_rag_system, raise_errors=True)
+
+
+@pytest.fixture
+def error_client(error_app):
+    """Create a TestClient with error-raising RAG system"""
+    return TestClient(error_app)
