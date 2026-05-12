@@ -10,9 +10,7 @@ These tests evaluate:
 6. Edge cases (empty results, partial matches)
 """
 
-import pytest
 from search_tools import CourseSearchTool
-from models import Course, Lesson, CourseChunk
 
 
 class TestCourseSearchToolExecute:
@@ -25,21 +23,22 @@ class TestCourseSearchToolExecute:
         result = tool.execute(query="Claude AI assistant")
 
         assert result is not None, "Result should not be None"
-        assert "Claude" in result or "AI" in result, "Result should contain relevant content"
+        assert (
+            "Claude" in result or "AI" in result
+        ), "Result should contain relevant content"
         assert tool.last_sources is not None, "Sources should be tracked"
 
     def test_execute_query_with_exact_course_name(self, populated_vector_store):
         """Test search with exact course name filter"""
         tool = CourseSearchTool(populated_vector_store)
 
-        result = tool.execute(
-            query="prompts",
-            course_name="Introduction to Claude"
-        )
+        result = tool.execute(query="prompts", course_name="Introduction to Claude")
 
         assert result is not None, "Result should not be None"
         # Should find content from the specified course
-        assert "Introduction to Claude" in result, "Result should be from the specified course"
+        assert (
+            "Introduction to Claude" in result
+        ), "Result should be from the specified course"
 
     def test_execute_query_with_partial_course_name(self, populated_vector_store):
         """Test that partial course name matches work"""
@@ -48,7 +47,7 @@ class TestCourseSearchToolExecute:
         # Use partial course name "Claude" instead of full title
         result = tool.execute(
             query="features",
-            course_name="Claude"  # Partial match for "Introduction to Claude"
+            course_name="Claude",  # Partial match for "Introduction to Claude"
         )
 
         assert result is not None, "Result should not be None"
@@ -59,10 +58,7 @@ class TestCourseSearchToolExecute:
         """Test search filtered by lesson number"""
         tool = CourseSearchTool(populated_vector_store)
 
-        result = tool.execute(
-            query="content",
-            lesson_number=1
-        )
+        result = tool.execute(query="content", lesson_number=1)
 
         assert result is not None, "Result should not be None"
         assert "Lesson 1" in result, "Result should be from lesson 1"
@@ -72,9 +68,7 @@ class TestCourseSearchToolExecute:
         tool = CourseSearchTool(populated_vector_store)
 
         result = tool.execute(
-            query="AI",
-            course_name="Introduction to Claude",
-            lesson_number=1
+            query="AI", course_name="Introduction to Claude", lesson_number=1
         )
 
         assert result is not None, "Result should not be None"
@@ -90,8 +84,9 @@ class TestCourseSearchToolExecute:
         result = tool.execute(query="any query")
 
         # Should return no results message
-        assert "No relevant content found" in result, \
-            "Should return 'no content found' message for empty catalog"
+        assert (
+            "No relevant content found" in result
+        ), "Should return 'no content found' message for empty catalog"
 
     def test_execute_returns_message_for_no_results(self, vector_store):
         """Test behavior when search finds no results"""
@@ -99,8 +94,9 @@ class TestCourseSearchToolExecute:
 
         result = tool.execute(query="random unrelated query xyz123")
 
-        assert "No relevant content found" in result, \
-            "Should return 'no content found' message for empty results"
+        assert (
+            "No relevant content found" in result
+        ), "Should return 'no content found' message for empty results"
 
     def test_execute_sources_are_tracked(self, populated_vector_store):
         """Test that sources are properly tracked after search"""
@@ -127,8 +123,9 @@ class TestCourseSearchToolExecute:
             # Check that link is populated for lesson 1
             for source in sources:
                 if "Lesson 1" in source.get("display_text", ""):
-                    assert source.get("link") is not None, \
-                        "Lesson 1 source should have a link"
+                    assert (
+                        source.get("link") is not None
+                    ), "Lesson 1 source should have a link"
 
     def test_execute_empty_vector_store(self, vector_store):
         """Test behavior with empty vector store"""
@@ -136,8 +133,9 @@ class TestCourseSearchToolExecute:
 
         result = tool.execute(query="any query")
 
-        assert "No relevant content found" in result, \
-            "Should return no results message for empty store"
+        assert (
+            "No relevant content found" in result
+        ), "Should return no results message for empty store"
 
     def test_execute_handles_special_characters(self, populated_vector_store):
         """Test that special characters in query don't cause errors"""
@@ -168,7 +166,9 @@ class TestCourseSearchToolFormatting:
 
         if "No relevant content found" not in result:
             assert "[" in result, "Formatted result should include header brackets"
-            assert "Introduction to Claude" in result, "Header should include course title"
+            assert (
+                "Introduction to Claude" in result
+            ), "Header should include course title"
 
     def test_format_includes_lesson_info(self, populated_vector_store):
         """Test that formatted results include lesson information"""
@@ -191,8 +191,9 @@ class TestCourseSearchToolFormatting:
         display_texts = [s.get("display_text") for s in sources]
 
         # Check no duplicates in last sources
-        assert len(display_texts) == len(set(display_texts)), \
-            "Sources should not have duplicates"
+        assert len(display_texts) == len(
+            set(display_texts)
+        ), "Sources should not have duplicates"
 
 
 class TestCourseSearchToolIntegration:
@@ -210,10 +211,7 @@ class TestCourseSearchToolIntegration:
 
     def test_execute_with_tool_manager(self, tool_manager):
         """Test that ToolManager can execute the search tool"""
-        result = tool_manager.execute_tool(
-            "search_course_content",
-            query="Claude"
-        )
+        result = tool_manager.execute_tool("search_course_content", query="Claude")
 
         assert result is not None, "ToolManager should execute tool successfully"
 

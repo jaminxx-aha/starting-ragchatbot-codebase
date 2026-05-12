@@ -10,12 +10,11 @@ These tests evaluate:
 6. Error handling across the system
 """
 
+from unittest.mock import patch
+
 import pytest
-import os
-from unittest.mock import Mock, MagicMock, patch
-from rag_system import RAGSystem
-from search_tools import ToolManager
 from config import config
+from rag_system import RAGSystem
 
 
 class TestRAGSystemQueryFlow:
@@ -24,9 +23,7 @@ class TestRAGSystemQueryFlow:
     def test_query_returns_response_and_sources(self, rag_system):
         """Test that query returns both response string and sources list"""
         response, sources = rag_system.query(
-            query="What is this course about?",
-            session_id=None,
-            language="en"
+            query="What is this course about?", session_id=None, language="en"
         )
 
         assert response is not None, "Response should not be None"
@@ -39,10 +36,7 @@ class TestRAGSystemQueryFlow:
         # This test requires checking internal behavior
         session_id = rag_system.session_manager.create_session()
 
-        response, sources = rag_system.query(
-            query="test query",
-            session_id=session_id
-        )
+        response, sources = rag_system.query(query="test query", session_id=session_id)
 
         assert session_id is not None, "Session ID should exist"
 
@@ -52,9 +46,7 @@ class TestRAGSystemQueryFlow:
 
         # First query
         rag_system.query(
-            query="What is Test Course?",
-            session_id=session_id,
-            language="en"
+            query="What is Test Course?", session_id=session_id, language="en"
         )
 
         # Second query - should have history
@@ -64,27 +56,22 @@ class TestRAGSystemQueryFlow:
 
     def test_query_uses_tools_for_content_search(self, rag_system):
         """Test that content-related queries trigger tool use"""
-        # Mock the AI generator to verify tool usage
-        original_generate = rag_system.ai_generator.generate_response
-
-        tool_defs = rag_system.tool_manager.get_tool_definitions()
-
         # Verify tools are passed to generate_response
-        with patch.object(rag_system.ai_generator, 'generate_response') as mock_gen:
+        with patch.object(rag_system.ai_generator, "generate_response") as mock_gen:
             mock_gen.return_value = ("Test response", [])
 
             rag_system.query(query="What is in lesson 1?", language="en")
 
             # Check that tools were passed
             call_args = mock_gen.call_args
-            assert call_args[1].get("tools") is not None, \
-                "Tools should be passed to AI generator"
+            assert (
+                call_args[1].get("tools") is not None
+            ), "Tools should be passed to AI generator"
 
     def test_sources_are_retrieved_after_query(self, rag_system):
         """Test that sources are properly retrieved after tool execution"""
         response, sources = rag_system.query(
-            query="What topics are covered?",
-            language="en"
+            query="What topics are covered?", language="en"
         )
 
         # Sources should be populated from tool execution
@@ -105,7 +92,7 @@ class TestRAGSystemLanguageHandling:
 
     def test_chinese_language_instruction_in_prompt(self, rag_system):
         """Test that Chinese language instruction is added to prompt"""
-        with patch.object(rag_system.ai_generator, 'generate_response') as mock_gen:
+        with patch.object(rag_system.ai_generator, "generate_response") as mock_gen:
             mock_gen.return_value = ("中文回复", [])
 
             rag_system.query(query="测试问题", language="zh")
@@ -113,12 +100,13 @@ class TestRAGSystemLanguageHandling:
             call_args = mock_gen.call_args
             query_arg = call_args[1].get("query", "")
 
-            assert "请用中文回答" in query_arg, \
-                "Chinese instruction should be in prompt"
+            assert (
+                "请用中文回答" in query_arg
+            ), "Chinese instruction should be in prompt"
 
     def test_english_language_instruction_in_prompt(self, rag_system):
         """Test that English language instruction is added to prompt"""
-        with patch.object(rag_system.ai_generator, 'generate_response') as mock_gen:
+        with patch.object(rag_system.ai_generator, "generate_response") as mock_gen:
             mock_gen.return_value = ("English response", [])
 
             rag_system.query(query="test question", language="en")
@@ -126,12 +114,13 @@ class TestRAGSystemLanguageHandling:
             call_args = mock_gen.call_args
             query_arg = call_args[1].get("query", "")
 
-            assert "Please respond in English" in query_arg, \
-                "English instruction should be in prompt"
+            assert (
+                "Please respond in English" in query_arg
+            ), "English instruction should be in prompt"
 
     def test_default_language_is_chinese(self, rag_system):
         """Test that default language is Chinese"""
-        with patch.object(rag_system.ai_generator, 'generate_response') as mock_gen:
+        with patch.object(rag_system.ai_generator, "generate_response") as mock_gen:
             mock_gen.return_value = ("Response", [])
 
             # Call without specifying language (default should be zh)
@@ -140,8 +129,9 @@ class TestRAGSystemLanguageHandling:
             call_args = mock_gen.call_args
             query_arg = call_args[1].get("query", "")
 
-            assert "请用中文回答" in query_arg, \
-                "Default should be Chinese language instruction"
+            assert (
+                "请用中文回答" in query_arg
+            ), "Default should be Chinese language instruction"
 
 
 class TestRAGSystemToolManager:
@@ -151,15 +141,15 @@ class TestRAGSystemToolManager:
         """Test that ToolManager has search_course_content registered"""
         tool_names = list(rag_system.tool_manager.tools.keys())
 
-        assert "search_course_content" in tool_names, \
-            "Should have search_course_content tool"
+        assert (
+            "search_course_content" in tool_names
+        ), "Should have search_course_content tool"
 
     def test_tool_manager_has_outline_tool(self, rag_system):
         """Test that ToolManager has get_course_outline registered"""
         tool_names = list(rag_system.tool_manager.tools.keys())
 
-        assert "get_course_outline" in tool_names, \
-            "Should have get_course_outline tool"
+        assert "get_course_outline" in tool_names, "Should have get_course_outline tool"
 
     def test_tool_definitions_ready_for_api(self, rag_system):
         """Test that tool definitions are ready for Anthropic API"""
@@ -214,8 +204,9 @@ Content for course {i} lesson 0.
         existing_titles = rag_system.vector_store.get_existing_course_titles()
 
         # Course should only appear once
-        assert len(existing_titles) == len(set(existing_titles)), \
-            "No duplicate course titles"
+        assert len(existing_titles) == len(
+            set(existing_titles)
+        ), "No duplicate course titles"
 
 
 class TestRAGSystemVectorStoreIntegration:
@@ -231,8 +222,7 @@ class TestRAGSystemVectorStoreIntegration:
         """Test that search returns results for known content"""
         # Add a document first
         response, sources = rag_system.query(
-            query="What is the introduction lesson about?",
-            language="en"
+            query="What is the introduction lesson about?", language="en"
         )
 
         # Should get some response
@@ -294,16 +284,14 @@ class TestRAGSystemErrorHandling:
         """Test handling of invalid session ID"""
         # Use a non-existent session ID
         response, sources = rag_system.query(
-            query="test",
-            session_id="invalid_session_12345",
-            language="en"
+            query="test", session_id="invalid_session_12345", language="en"
         )
 
         assert response is not None, "Should handle invalid session"
 
     def test_api_failure_handling(self, rag_system):
         """Test handling when AI API fails"""
-        with patch.object(rag_system.ai_generator, 'generate_response') as mock_gen:
+        with patch.object(rag_system.ai_generator, "generate_response") as mock_gen:
             mock_gen.side_effect = Exception("API Error")
 
             try:
@@ -334,15 +322,16 @@ class TestRAGSystemEndToEnd:
 
         return RAGSystem(test_config)
 
-    def test_full_query_flow_with_real_search(self, full_rag_system, sample_course_file):
+    def test_full_query_flow_with_real_search(
+        self, full_rag_system, sample_course_file
+    ):
         """Test complete query flow with actual document search"""
         # Add document
         full_rag_system.add_course_document(sample_course_file)
 
         # Query
         response, sources = full_rag_system.query(
-            query="What is the introduction lesson?",
-            language="en"
+            query="What is the introduction lesson?", language="en"
         )
 
         assert response is not None, "Should get response"
@@ -353,8 +342,7 @@ class TestRAGSystemEndToEnd:
         full_rag_system.add_course_document(sample_course_file)
 
         response, sources = full_rag_system.query(
-            query="Show me the course outline for Test Course",
-            language="en"
+            query="Show me the course outline for Test Course", language="en"
         )
 
         assert response is not None, "Should handle outline query"
@@ -364,8 +352,7 @@ class TestRAGSystemEndToEnd:
         full_rag_system.add_course_document(sample_course_file)
 
         response, sources = full_rag_system.query(
-            query="What topics are covered in lesson 1?",
-            language="en"
+            query="What topics are covered in lesson 1?", language="en"
         )
 
         assert response is not None, "Should handle content query"
@@ -376,27 +363,35 @@ class TestRAGSystemAPIEndpointIssues:
 
     def test_app_endpoint_not_hardcoded_error(self):
         """Test that app.py endpoint doesn't have hardcoded error"""
-        import app
-
         # Read the source to check for hardcoded error
         import inspect
+
+        import app
+
         source = inspect.getsource(app.query_documents)
 
         # Check if there's a hardcoded raise HTTPException
-        has_hardcoded_error = "raise HTTPException(status_code=500, detail=\"query failed\")" in source
+        has_hardcoded_error = (
+            'raise HTTPException(status_code=500, detail="query failed")' in source
+        )
 
-        assert not has_hardcoded_error, \
-            "CRITICAL: app.py has hardcoded 'query failed' error at line 62!"
+        assert (
+            not has_hardcoded_error
+        ), "CRITICAL: app.py has hardcoded 'query failed' error at line 62!"
 
     def test_actual_query_logic_is_executed(self):
         """Test that actual query logic (not commented out) is executed"""
+        import inspect
+
         import app
 
-        import inspect
         source = inspect.getsource(app.query_documents)
 
         # Check if actual logic is commented out
-        has_commented_logic = "# try:" in source or "# session_id = request.session_id" in source
+        has_commented_logic = (
+            "# try:" in source or "# session_id = request.session_id" in source
+        )
 
-        assert not has_commented_logic, \
-            "CRITICAL: Actual query logic is commented out in app.py!"
+        assert (
+            not has_commented_logic
+        ), "CRITICAL: Actual query logic is commented out in app.py!"

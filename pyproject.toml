@@ -14,3 +14,42 @@ dependencies = [
     "python-dotenv==1.1.1",
     "pytest>=8.0.0",
 ]
+
+[project.optional-dependencies]
+dev = [
+    "black>=25.0.0",
+    "ruff>=0.11.0",
+    "mypy>=1.15.0",
+]
+
+[tool.black]
+line-length = 88
+target-version = ["py313"]
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+    | \.venv
+    | __pycache__
+    | \.eggs
+    | \.tox
+    | build
+    | dist
+)/
+'''
+
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+exclude = [".git", ".venv", "__pycache__", "build", "dist"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.13"
+warn_return_any = false
+warn_unused_configs = true
+ignore_missing_imports = true
+disable_error_code = ["override", "no-any-return", "arg-type", "var-annotated", "return-value", "call-overload"]

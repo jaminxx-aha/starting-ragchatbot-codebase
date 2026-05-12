@@ -1,5 +1,7 @@
+from typing import Any, Dict, List, Optional
+
 import anthropic
-from typing import List, Optional, Dict, Any
+
 
 class AIGenerator:
     """Handles interactions with Anthropic's Claude API for generating responses"""
@@ -40,25 +42,24 @@ All responses must be:
 4. **Example-supported** - Include relevant examples when they aid understanding
 Provide only the direct answer to what was asked.
 """
-    
+
     def __init__(self, api_key: str, model: str, base_url: str = ""):
         if base_url:
             self.client = anthropic.Anthropic(api_key=api_key, base_url=base_url)
         else:
             self.client = anthropic.Anthropic(api_key=api_key)
         self.model = model
-        
+
         # Pre-build base API parameters
-        self.base_params = {
-            "model": self.model,
-            "temperature": 0,
-            "max_tokens": 800
-        }
-    
-    def generate_response(self, query: str,
-                         conversation_history: Optional[str] = None,
-                         tools: Optional[List] = None,
-                         tool_manager=None) -> str:
+        self.base_params = {"model": self.model, "temperature": 0, "max_tokens": 800}
+
+    def generate_response(
+        self,
+        query: str,
+        conversation_history: Optional[str] = None,
+        tools: Optional[List] = None,
+        tool_manager=None,
+    ) -> str:
         """
         Generate AI response with optional tool usage and conversation context.
 
@@ -86,7 +87,7 @@ Provide only the direct answer to what was asked.
         api_params = {
             **self.base_params,
             "messages": messages,
-            "system": system_content
+            "system": system_content,
         }
 
         # Add tools if available - these remain for sequential calls
@@ -101,9 +102,14 @@ Provide only the direct answer to what was asked.
         # Direct API call without tools
         response = self.client.messages.create(**api_params)
         return self._extract_text(response) or "No response generated."
-    
-    def _agentic_loop(self, messages: List[Dict], api_params: Dict[str, Any],
-                       tool_manager, max_rounds: int = MAX_TOOL_ROUNDS) -> str:
+
+    def _agentic_loop(
+        self,
+        messages: List[Dict],
+        api_params: Dict[str, Any],
+        tool_manager,
+        max_rounds: int = MAX_TOOL_ROUNDS,
+    ) -> str:
         """
         Execute agentic loop for sequential tool calling.
 
@@ -159,7 +165,7 @@ Provide only the direct answer to what was asked.
         final_params = {
             **self.base_params,
             "messages": messages,
-            "system": api_params["system"]
+            "system": api_params["system"],
         }
         final_response = self.client.messages.create(**final_params)
         return self._extract_text(final_response) or "No response generated."
@@ -180,19 +186,23 @@ Provide only the direct answer to what was asked.
             if block.type == "tool_use":
                 try:
                     result = tool_manager.execute_tool(block.name, **block.input)
-                    tool_results.append({
-                        "type": "tool_result",
-                        "tool_use_id": block.id,
-                        "content": result
-                    })
+                    tool_results.append(
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": block.id,
+                            "content": result,
+                        }
+                    )
                 except Exception as e:
                     # Error handling with is_error flag
-                    tool_results.append({
-                        "type": "tool_result",
-                        "tool_use_id": block.id,
-                        "content": f"Error executing tool: {str(e)}",
-                        "is_error": True
-                    })
+                    tool_results.append(
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": block.id,
+                            "content": f"Error executing tool: {str(e)}",
+                            "is_error": True,
+                        }
+                    )
         return tool_results
 
     def _extract_text(self, response) -> str:
@@ -207,17 +217,17 @@ Provide only the direct answer to what was asked.
         """
         # Prioritize text block
         for block in response.content:
-            if block.type == 'text' and hasattr(block, 'text'):
+            if block.type == "text" and hasattr(block, "text"):
                 return block.text
 
         # Fall back to thinking block if no text
         for block in response.content:
-            if block.type == 'thinking' and hasattr(block, 'thinking'):
+            if block.type == "thinking" and hasattr(block, "thinking"):
                 return block.thinking
 
         # Last resort: any text attribute
         for block in response.content:
-            if hasattr(block, 'text'):
+            if hasattr(block, "text"):
                 return block.text
 
         return ""

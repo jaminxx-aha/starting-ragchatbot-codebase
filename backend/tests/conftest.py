@@ -1,17 +1,17 @@
-import pytest
 import os
 import sys
+
+import pytest
 
 # Add backend directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from config import config
-from vector_store import VectorStore
 from document_processor import DocumentProcessor
-from search_tools import CourseSearchTool, CourseOutlineTool, ToolManager
-from ai_generator import AIGenerator
+from models import Course, CourseChunk, Lesson
 from rag_system import RAGSystem
-from models import Course, Lesson, CourseChunk
+from search_tools import CourseOutlineTool, CourseSearchTool, ToolManager
+from vector_store import VectorStore
 
 
 @pytest.fixture
@@ -24,9 +24,7 @@ def temp_chroma_path(tmp_path):
 def vector_store(temp_chroma_path):
     """Create a VectorStore instance for testing"""
     store = VectorStore(
-        chroma_path=temp_chroma_path,
-        embedding_model="all-MiniLM-L6-v2",
-        max_results=5
+        chroma_path=temp_chroma_path, embedding_model="all-MiniLM-L6-v2", max_results=5
     )
     return store
 
@@ -40,9 +38,17 @@ def populated_vector_store(vector_store):
         course_link="https://example.com/course",
         instructor="Anthropic",
         lessons=[
-            Lesson(lesson_number=1, title="Getting Started", lesson_link="https://example.com/lesson1"),
-            Lesson(lesson_number=2, title="Advanced Usage", lesson_link="https://example.com/lesson2"),
-        ]
+            Lesson(
+                lesson_number=1,
+                title="Getting Started",
+                lesson_link="https://example.com/lesson1",
+            ),
+            Lesson(
+                lesson_number=2,
+                title="Advanced Usage",
+                lesson_link="https://example.com/lesson2",
+            ),
+        ],
     )
     vector_store.add_course_metadata(course)
 
@@ -52,19 +58,19 @@ def populated_vector_store(vector_store):
             content="Claude is a powerful AI assistant that can help with various tasks.",
             course_title="Introduction to Claude",
             lesson_number=1,
-            chunk_index=0
+            chunk_index=0,
         ),
         CourseChunk(
             content="To use Claude effectively, you should provide clear and specific prompts.",
             course_title="Introduction to Claude",
             lesson_number=1,
-            chunk_index=1
+            chunk_index=1,
         ),
         CourseChunk(
             content="Advanced features include tool use and extended thinking capabilities.",
             course_title="Introduction to Claude",
             lesson_number=2,
-            chunk_index=2
+            chunk_index=2,
         ),
     ]
     vector_store.add_course_content(chunks)
